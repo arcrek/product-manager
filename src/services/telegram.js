@@ -7,6 +7,22 @@ class TelegramService {
         this.enabled = false;
     }
 
+    // Format time to UTC+7
+    formatTime() {
+        const now = new Date();
+        const utc7Time = new Date(now.getTime() + (7 * 60 * 60 * 1000));
+        return utc7Time.toLocaleString('en-US', {
+            timeZone: 'Asia/Bangkok',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false
+        });
+    }
+
     configure(botToken, chatId, enabled = true) {
         this.botToken = botToken;
         this.chatId = chatId;
@@ -64,7 +80,7 @@ class TelegramService {
             message += `Stock is below threshold (${threshold})`;
         }
         
-        message += `\n\n⏰ Time: ${new Date().toLocaleString()}`;
+        message += `\n\n⏰ Time: ${this.formatTime()} (UTC+7)`;
         
         // Add custom footer if provided
         if (footer) {
@@ -81,7 +97,44 @@ class TelegramService {
             message += `${header}\n\n`;
         }
         
-        message += `✅ <b>Test Message</b>\n\nTelegram notifications are working!\n\n⏰ ${new Date().toLocaleString()}`;
+        message += `✅ <b>Test Message</b>\n\nTelegram notifications are working!\n\n⏰ ${this.formatTime()} (UTC+7)`;
+        
+        if (footer) {
+            message += `\n\n${footer}`;
+        }
+        
+        return await this.sendMessage(message);
+    }
+
+    async sendProductAddedAlert(quantity, header = '', footer = '') {
+        let message = '';
+        
+        if (header) {
+            message += `${header}\n\n`;
+        }
+        
+        message += `📦 <b>Products Added</b>\n\n`;
+        message += `➕ New Products: <b>${quantity}</b>\n`;
+        message += `⏰ Time: ${this.formatTime()} (UTC+7)`;
+        
+        if (footer) {
+            message += `\n\n${footer}`;
+        }
+        
+        return await this.sendMessage(message);
+    }
+
+    async sendProductSoldAlert(quantity, orderId, header = '', footer = '') {
+        let message = '';
+        
+        if (header) {
+            message += `${header}\n\n`;
+        }
+        
+        message += `💰 <b>Products Sold</b>\n\n`;
+        message += `📤 Quantity Sold: <b>${quantity}</b>\n`;
+        message += `🆔 Order ID: <code>${orderId}</code>\n`;
+        message += `⏰ Time: ${this.formatTime()} (UTC+7)`;
         
         if (footer) {
             message += `\n\n${footer}`;

@@ -9,6 +9,7 @@ class StockChecker {
         this.isRunning = false;
         this.lastCheck = null;
         this.lastNotificationCount = null;
+        this.lastAlertType = null; // Track what type of alert was last sent
     }
 
     async checkStock() {
@@ -16,43 +17,58 @@ class StockChecker {
             console.log('Running stock check...');
             this.lastCheck = new Date();
 
-            // Get current stock count
+            // Get current stock count (available)
             const result = await queries.getAvailableCount();
-            const currentCount = result ? result.sum : 0;
+            const currentAvailable = result ? result.sum : 0;
 
             // Get settings
             const settings = await settingsService.getSettings();
             const threshold = settings.stock_threshold || 10;
-            const notifyOnChange = settings.notify_on_change || false;
+            const header = settings.telegram_header || '';
+            const footer = settings.telegram_footer || '';
 
-            console.log(`Current stock: ${currentCount}, Threshold: ${threshold}`);
+            console.log(`Available: ${currentAvailable}, Threshold: ${threshold}`);
 
-            // Check if we should send notification
-            let shouldNotify = false;
+            let notificationSent = false;
 
-            // Always notify if stock is 0 or below threshold
-            if (currentCount === 0 || currentCount <= threshold) {
-                shouldNotify = true;
+            // Determine current alert type
+            let currentAlertType = null;
+            if (currentAvailable === 0) {
+                currentAlertType = 'out_of_stock';
+            } else if (currentAvailable <= threshold) {
+                currentAlertType = 'low_stock';
+            } else {
+                currentAlertType = 'normal';
             }
 
-            // Notify on change if enabled
-            if (notifyOnChange && this.lastNotificationCount !== null && 
-                this.lastNotificationCount !== currentCount) {
-                shouldNotify = true;
+            // Only send notification if:
+            // 1. Alert type changed (e.g., from low_stock to out_of_stock)
+            // 2. Stock count changed AND still in alert state
+            // 3. First time checking (lastAlertType is null)
+            const shouldNotify = (
+                this.lastAlertType === null || // First check
+                this.lastAlertType !== currentAlertType || // Alert type changed
+                (currentAlertType !== 'normal' && this.lastNotificationCount !== currentAvailable) // Stock changed while in alert state
+            );
+
+            if (shouldNotify && currentAlertType !== 'normal') {
+                await telegramService.sendStockAlert(currentAvailable, threshold, header, footer);
+                notificationSent = true;
+                console.log(`✓ Sent ${currentAlertType} alert for ${currentAvailable} products`);
+            } else if (currentAlertType !== 'normal') {
+                console.log(`Skipped duplicate ${currentAlertType} notification (already sent)`);
             }
 
-            if (shouldNotify) {
-                const header = settings.telegram_header || '';
-                const footer = settings.telegram_footer || '';
-                await telegramService.sendStockAlert(currentCount, threshold, header, footer);
-                this.lastNotificationCount = currentCount;
-            }
+            // Update tracking
+            this.lastNotificationCount = currentAvailable;
+            this.lastAlertType = currentAlertType;
 
             return {
                 success: true,
-                currentStock: currentCount,
+                currentStock: currentAvailable,
                 threshold,
-                notificationSent: shouldNotify
+                notificationSent,
+                alertType: currentAlertType
             };
         } catch (error) {
             console.error('Stock check error:', error);
@@ -104,7 +120,8 @@ class StockChecker {
         return {
             running: this.isRunning,
             lastCheck: this.lastCheck,
-            lastNotificationCount: this.lastNotificationCount
+            lastNotificationCount: this.lastNotificationCount,
+            lastAlertType: this.lastAlertType
         };
     }
 }

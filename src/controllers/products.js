@@ -1,6 +1,7 @@
 const { queries, runInTransaction, dbRun } = require('../config/database');
 const { validateProductText, parseProductsFromText } = require('../utils/validator');
 const cache = require('../utils/cache');
+const activityMonitor = require('../services/activityMonitor');
 
 // Upload products from text
 async function uploadProducts(req, res) {
@@ -54,6 +55,9 @@ async function uploadProducts(req, res) {
 
         // Invalidate cache
         cache.invalidate('inventory_count');
+
+        // Send immediate notification about products added
+        activityMonitor.notifyProductAdded(inserted);
 
         res.json({ 
             success: true, 

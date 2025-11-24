@@ -202,7 +202,7 @@
                     </div>
 
                     <div class="form-group">
-                        <label for="check_interval">Check Interval (Cron)</label>
+                        <label for="check_interval">Stock Level Check Interval</label>
                         <select id="check_interval" class="select">
                             <option value="*/5 * * * *">Every 5 minutes</option>
                             <option value="*/15 * * * *">Every 15 minutes</option>
@@ -211,14 +211,22 @@
                             <option value="0 */3 * * *">Every 3 hours</option>
                             <option value="0 */6 * * *">Every 6 hours</option>
                         </select>
-                        <small>How often to check stock levels</small>
+                        <small>How often to check for low stock/out of stock alerts</small>
                     </div>
 
                     <div class="form-group">
-                        <label for="notify_on_change">
-                            <input type="checkbox" id="notify_on_change"> 
-                            Notify on any stock change
+                        <label style="font-weight: 600; margin-bottom: 10px; display: block;">Notification Events (Real-time)</label>
+                        <label for="notify_on_add" style="display: block; margin-bottom: 8px;">
+                            <input type="checkbox" id="notify_on_add"> 
+                            Notify when products are added (immediate)
                         </label>
+                        <label for="notify_on_sold">
+                            <input type="checkbox" id="notify_on_sold"> 
+                            Notify when products are sold (immediate)
+                        </label>
+                        <small style="display: block; margin-top: 10px; color: #666;">
+                            ⚡ These notifications are sent instantly when events occur, not on check interval
+                        </small>
                     </div>
 
                     <div class="form-group">

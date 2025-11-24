@@ -553,7 +553,8 @@ async function loadTelegramSettings() {
         document.getElementById('telegram_chat_id').value = settings.telegram_chat_id || '';
         document.getElementById('stock_threshold').value = settings.stock_threshold || 10;
         document.getElementById('check_interval').value = settings.check_interval || '*/30 * * * *';
-        document.getElementById('notify_on_change').checked = settings.notify_on_change || false;
+        document.getElementById('notify_on_add').checked = settings.notify_on_add !== false;
+        document.getElementById('notify_on_sold').checked = settings.notify_on_sold !== false;
         document.getElementById('telegram_header').value = settings.telegram_header || '';
         document.getElementById('telegram_footer').value = settings.telegram_footer || '';
         
@@ -581,7 +582,8 @@ async function saveTelegramSettings() {
         telegram_chat_id: document.getElementById('telegram_chat_id').value.trim(),
         stock_threshold: parseInt(document.getElementById('stock_threshold').value),
         check_interval: document.getElementById('check_interval').value,
-        notify_on_change: document.getElementById('notify_on_change').checked,
+        notify_on_add: document.getElementById('notify_on_add').checked,
+        notify_on_sold: document.getElementById('notify_on_sold').checked,
         telegram_header: document.getElementById('telegram_header').value.trim(),
         telegram_footer: document.getElementById('telegram_footer').value.trim()
     };

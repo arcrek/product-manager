@@ -1,6 +1,7 @@
 const { queries, runInTransaction } = require('../config/database');
 const { validateQuantity, validateOrderId } = require('../utils/validator');
 const cache = require('../utils/cache');
+const activityMonitor = require('../services/activityMonitor');
 
 // Get total inventory count (available products)
 async function getInventoryCount(req, res) {
@@ -69,6 +70,9 @@ async function getProducts(req, res) {
 
         // Invalidate cache
         cache.invalidate('inventory_count');
+
+        // Send notification about sale
+        activityMonitor.notifyProductSold(qty, orderId);
 
         res.json(result);
     } catch (error) {

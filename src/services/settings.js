@@ -24,7 +24,8 @@ class SettingsService {
                 telegram_enabled: 'false',
                 stock_threshold: '10',
                 check_interval: '*/30 * * * *', // Every 30 minutes
-                notify_on_change: 'false',
+                notify_on_add: 'true',
+                notify_on_sold: 'true',
                 last_notification: '',
                 telegram_header: '🏪 <b>ExpressVPN Stock Monitor</b>',
                 telegram_footer: '━━━━━━━━━━━━━━━━\n💻 Powered by ExpressVPN API'
