@@ -566,6 +566,154 @@ textarea:focus {
     border-bottom: none;
 }
 
+/* API Keys Management */
+.mini-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 15px 25px;
+    background: #f9fafb;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+}
+
+.mini-stat-value {
+    font-size: 1.8rem;
+    font-weight: bold;
+    color: #667eea;
+}
+
+.mini-stat-label {
+    font-size: 0.85rem;
+    color: #666;
+    margin-top: 5px;
+}
+
+.key-display {
+    font-family: 'Courier New', monospace;
+    background: #f9fafb;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    color: #333;
+    cursor: pointer;
+    position: relative;
+}
+
+.key-display:hover {
+    background: #f3f4f6;
+}
+
+.key-copy-btn {
+    margin-left: 8px;
+    padding: 2px 8px;
+    font-size: 0.75rem;
+    background: #667eea;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.key-copy-btn:hover {
+    background: #5568d3;
+}
+
+/* Telegram Settings */
+.telegram-settings {
+    margin-top: 15px;
+}
+
+.telegram-settings .form-group {
+    margin-bottom: 20px;
+}
+
+.telegram-settings label {
+    display: block;
+    margin-bottom: 8px;
+    color: #333;
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+.telegram-settings input[type="text"],
+.telegram-settings input[type="number"] {
+    width: 100%;
+    padding: 10px 14px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    transition: border-color 0.2s;
+}
+
+.telegram-settings input[type="text"]:focus,
+.telegram-settings input[type="number"]:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.telegram-settings input[type="checkbox"] {
+    margin-right: 8px;
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+.telegram-settings small {
+    display: block;
+    color: #666;
+    font-size: 0.85rem;
+    margin-top: 5px;
+}
+
+.button-group {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.status-box {
+    padding: 15px;
+    background: #f9fafb;
+    border-radius: 8px;
+    border-left: 4px solid #667eea;
+}
+
+.status-box h3 {
+    margin: 0 0 10px 0;
+    font-size: 1rem;
+    color: #333;
+}
+
+.status-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.status-item:last-child {
+    border-bottom: none;
+}
+
+.status-label {
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.status-value {
+    font-weight: 600;
+    color: #333;
+}
+
+.status-value.success {
+    color: #10b981;
+}
+
+.status-value.error {
+    color: #ef4444;
+}
+
 /* Scrollbar Styling */
 ::-webkit-scrollbar {
     width: 8px;

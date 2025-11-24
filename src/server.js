@@ -14,7 +14,12 @@ require('./config/database');
 
 const apiRoutes = require('./routes/api');
 const dashboardRoutes = require('./routes/dashboard');
+const settingsRoutes = require('./routes/settings');
+const apiKeysRoutes = require('./routes/apiKeys');
 const { handleLogin, handleLogout, validateDashboardAuth } = require('./middleware/auth');
+const telegramService = require('./services/telegram');
+const stockChecker = require('./services/stockChecker');
+const settingsService = require('./services/settings');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -101,6 +106,8 @@ app.use('/', apiRoutes);
 
 // Dashboard API routes - require authentication
 app.use('/api', validateDashboardAuth, dashboardRoutes);
+app.use('/api', validateDashboardAuth, settingsRoutes);
+app.use('/api', validateDashboardAuth, apiKeysRoutes);
 
 // Dashboard page - require authentication
 app.get(['/', '/dashboard'], validateDashboardAuth, (req, res) => {
@@ -126,8 +133,31 @@ app.use((err, req, res, next) => {
     res.status(500).json({ error: 'Internal server error' });
 });
 
+// Initialize services
+async function initializeServices() {
+    try {
+        // Load settings and configure Telegram
+        const settings = await settingsService.getSettings();
+        
+        telegramService.configure(
+            settings.telegram_bot_token,
+            settings.telegram_chat_id,
+            settings.telegram_enabled
+        );
+
+        // Start stock checker if enabled
+        if (settings.telegram_enabled) {
+            await stockChecker.start();
+        }
+
+        console.log('✓ Services initialized');
+    } catch (error) {
+        console.error('Error initializing services:', error);
+    }
+}
+
 // Start server
-app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, '0.0.0.0', async () => {
     console.log(`
 ╔═══════════════════════════════════════════╗
 ║   ExpressVPN API Server                   ║
@@ -141,16 +171,21 @@ app.listen(PORT, '0.0.0.0', () => {
 
 Press Ctrl+C to stop
     `);
+
+    // Initialize services
+    await initializeServices();
 });
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
     console.log('SIGTERM received, shutting down gracefully...');
+    stockChecker.stop();
     process.exit(0);
 });
 
 process.on('SIGINT', () => {
     console.log('\nSIGINT received, shutting down gracefully...');
+    stockChecker.stop();
     process.exit(0);
 });
 

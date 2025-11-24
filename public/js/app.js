@@ -6,6 +6,8 @@ let allProducts = [];
 document.addEventListener('DOMContentLoaded', () => {
     loadStats();
     loadProducts();
+    loadTelegramSettings();
+    loadApiKeys();
 });
 
 // Logout function
@@ -529,5 +531,478 @@ function formatDateShort(dateString) {
     if (!dateString) return '-';
     const date = new Date(dateString);
     return date.toLocaleDateString();
+}
+
+// Telegram Settings Functions
+async function loadTelegramSettings() {
+    try {
+        const response = await fetch('/api/settings');
+        
+        if (response.status === 401) {
+            window.location.href = '/login';
+            return;
+        }
+        
+        const data = await response.json();
+        const settings = data.settings;
+        const checker = data.checker;
+        
+        // Populate form
+        document.getElementById('telegram_enabled').checked = settings.telegram_enabled || false;
+        document.getElementById('telegram_bot_token').value = settings.telegram_bot_token || '';
+        document.getElementById('telegram_chat_id').value = settings.telegram_chat_id || '';
+        document.getElementById('stock_threshold').value = settings.stock_threshold || 10;
+        document.getElementById('check_interval').value = settings.check_interval || '*/30 * * * *';
+        document.getElementById('notify_on_change').checked = settings.notify_on_change || false;
+        document.getElementById('telegram_header').value = settings.telegram_header || '';
+        document.getElementById('telegram_footer').value = settings.telegram_footer || '';
+        
+        // Show/hide config
+        toggleTelegramSettings();
+        
+        // Update status
+        updateCheckerStatus(checker);
+        
+    } catch (error) {
+        console.error('Error loading Telegram settings:', error);
+    }
+}
+
+function toggleTelegramSettings() {
+    const enabled = document.getElementById('telegram_enabled').checked;
+    const config = document.getElementById('telegramConfig');
+    config.style.display = enabled ? 'block' : 'none';
+}
+
+async function saveTelegramSettings() {
+    const settings = {
+        telegram_enabled: document.getElementById('telegram_enabled').checked,
+        telegram_bot_token: document.getElementById('telegram_bot_token').value.trim(),
+        telegram_chat_id: document.getElementById('telegram_chat_id').value.trim(),
+        stock_threshold: parseInt(document.getElementById('stock_threshold').value),
+        check_interval: document.getElementById('check_interval').value,
+        notify_on_change: document.getElementById('notify_on_change').checked,
+        telegram_header: document.getElementById('telegram_header').value.trim(),
+        telegram_footer: document.getElementById('telegram_footer').value.trim()
+    };
+    
+    // Validate
+    if (settings.telegram_enabled) {
+        if (!settings.telegram_bot_token || !settings.telegram_chat_id) {
+            showToast('Please fill in Bot Token and Chat ID', 'error');
+            return;
+        }
+    }
+    
+    try {
+        const response = await fetch('/api/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(settings)
+        });
+        
+        if (response.status === 401) {
+            window.location.href = '/login';
+            return;
+        }
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to save settings');
+        }
+        
+        showToast('Settings saved successfully!', 'success');
+        
+    } catch (error) {
+        console.error('Error saving settings:', error);
+        showToast(error.message, 'error');
+    }
+}
+
+async function testTelegram() {
+    const bot_token = document.getElementById('telegram_bot_token').value.trim();
+    const chat_id = document.getElementById('telegram_chat_id').value.trim();
+    const header = document.getElementById('telegram_header').value.trim();
+    const footer = document.getElementById('telegram_footer').value.trim();
+    
+    if (!bot_token || !chat_id) {
+        showToast('Please fill in Bot Token and Chat ID', 'error');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/settings/telegram/test', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ bot_token, chat_id, header, footer })
+        });
+        
+        if (response.status === 401) {
+            window.location.href = '/login';
+            return;
+        }
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showToast(`✓ Test successful! Check your Telegram group.`, 'success');
+        } else {
+            showToast(`✗ Test failed: ${data.error}`, 'error');
+        }
+        
+    } catch (error) {
+        console.error('Error testing Telegram:', error);
+        showToast('Failed to test Telegram', 'error');
+    }
+}
+
+async function checkStockNow() {
+    try {
+        const response = await fetch('/api/settings/check-stock', {
+            method: 'POST'
+        });
+        
+        if (response.status === 401) {
+            window.location.href = '/login';
+            return;
+        }
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showToast(`Stock check completed. Current: ${data.currentStock}${data.notificationSent ? ' (notification sent)' : ''}`, 'success');
+        } else {
+            showToast(`Check failed: ${data.error}`, 'error');
+        }
+        
+    } catch (error) {
+        console.error('Error checking stock:', error);
+        showToast('Failed to check stock', 'error');
+    }
+}
+
+async function toggleChecker() {
+    const btn = document.getElementById('toggleCheckerBtn');
+    const isRunning = btn.textContent.includes('Stop');
+    const action = isRunning ? 'stop' : 'start';
+    
+    try {
+        const response = await fetch(`/api/settings/checker/${action}`, {
+            method: 'POST'
+        });
+        
+        if (response.status === 401) {
+            window.location.href = '/login';
+            return;
+        }
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            btn.textContent = isRunning ? '▶️ Start' : '⏸️ Stop';
+            showToast(data.message, 'success');
+            
+            // Reload settings to update status
+            setTimeout(loadTelegramSettings, 500);
+        }
+        
+    } catch (error) {
+        console.error('Error toggling checker:', error);
+        showToast('Failed to toggle checker', 'error');
+    }
+}
+
+// API Keys Management Functions
+async function loadApiKeys() {
+    try {
+        const response = await fetch('/api/api-keys');
+        
+        if (response.status === 401) {
+            window.location.href = '/login';
+            return;
+        }
+        
+        const data = await response.json();
+        const keys = data.keys;
+        const stats = data.stats;
+        
+        // Update stats
+        document.getElementById('totalKeys').textContent = stats.total || 0;
+        document.getElementById('activeKeys').textContent = stats.active || 0;
+        document.getElementById('totalRequests').textContent = stats.total_requests || 0;
+        
+        // Display keys
+        displayApiKeys(keys);
+        
+    } catch (error) {
+        console.error('Error loading API keys:', error);
+        showToast('Failed to load API keys', 'error');
+    }
+}
+
+function displayApiKeys(keys) {
+    const tbody = document.getElementById('apiKeysBody');
+    
+    if (keys.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="loading">No API keys found</td></tr>';
+        return;
+    }
+    
+    const html = keys.map(key => `
+        <tr>
+            <td><strong>${escapeHtml(key.name)}</strong>${key.description ? `<br><small>${escapeHtml(key.description)}</small>` : ''}</td>
+            <td>
+                <code class="key-display" onclick="copyToClipboard('${key.key}')" title="Click to copy">
+                    ${key.key.substring(0, 20)}...
+                </code>
+            </td>
+            <td>
+                <span class="badge ${key.is_active ? 'badge-success' : 'badge-warning'}">
+                    ${key.is_active ? 'Active' : 'Inactive'}
+                </span>
+            </td>
+            <td>${key.usage_count || 0} requests</td>
+            <td>${key.last_used ? formatDate(key.last_used) : 'Never'}</td>
+            <td>${formatDate(key.created_at)}<br><small>by ${escapeHtml(key.created_by)}</small></td>
+            <td>
+                <button onclick="toggleApiKey(${key.id}, ${!key.is_active})" class="btn btn-small ${key.is_active ? 'btn-secondary' : 'btn-primary'}" title="${key.is_active ? 'Deactivate' : 'Activate'}">
+                    ${key.is_active ? '⏸️' : '▶️'}
+                </button>
+                <button onclick="editApiKey(${key.id})" class="btn btn-secondary btn-small" title="Edit">✏️</button>
+                <button onclick="deleteApiKey(${key.id})" class="btn btn-danger btn-small" title="Delete">🗑️</button>
+            </td>
+        </tr>
+    `).join('');
+    
+    tbody.innerHTML = html;
+}
+
+function showCreateKeyModal() {
+    const modal = document.getElementById('createKeyModal');
+    modal.classList.add('show');
+    document.getElementById('keyValue').value = '';
+    document.getElementById('keyName').value = '';
+    document.getElementById('keyDescription').value = '';
+}
+
+function closeCreateKeyModal() {
+    const modal = document.getElementById('createKeyModal');
+    modal.classList.remove('show');
+}
+
+async function createApiKey() {
+    const key = document.getElementById('keyValue').value.trim();
+    const name = document.getElementById('keyName').value.trim();
+    const description = document.getElementById('keyDescription').value.trim();
+    
+    if (!key) {
+        showToast('Please enter an API key', 'error');
+        return;
+    }
+    
+    if (!name) {
+        showToast('Please enter a key name', 'error');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/api-keys', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key, name, description })
+        });
+        
+        if (response.status === 401) {
+            window.location.href = '/login';
+            return;
+        }
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to import API key');
+        }
+        
+        showToast('API key imported successfully!', 'success');
+        closeCreateKeyModal();
+        loadApiKeys();
+        
+    } catch (error) {
+        console.error('Error importing API key:', error);
+        showToast(error.message, 'error');
+    }
+}
+
+async function editApiKey(id) {
+    try {
+        const response = await fetch('/api/api-keys');
+        const data = await response.json();
+        const key = data.keys.find(k => k.id === id);
+        
+        if (!key) {
+            showToast('Key not found', 'error');
+            return;
+        }
+        
+        document.getElementById('editKeyId').value = key.id;
+        document.getElementById('editKeyName').value = key.name;
+        document.getElementById('editKeyDescription').value = key.description || '';
+        document.getElementById('editKeyActive').checked = key.is_active;
+        
+        const modal = document.getElementById('editKeyModal');
+        modal.classList.add('show');
+        
+    } catch (error) {
+        console.error('Error loading key for edit:', error);
+        showToast('Failed to load key details', 'error');
+    }
+}
+
+function closeEditKeyModal() {
+    const modal = document.getElementById('editKeyModal');
+    modal.classList.remove('show');
+}
+
+async function saveApiKey() {
+    const id = document.getElementById('editKeyId').value;
+    const name = document.getElementById('editKeyName').value.trim();
+    const description = document.getElementById('editKeyDescription').value.trim();
+    const is_active = document.getElementById('editKeyActive').checked;
+    
+    if (!name) {
+        showToast('Please enter a key name', 'error');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/api-keys/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, description, is_active })
+        });
+        
+        if (response.status === 401) {
+            window.location.href = '/login';
+            return;
+        }
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to update API key');
+        }
+        
+        showToast('API key updated successfully!', 'success');
+        closeEditKeyModal();
+        loadApiKeys();
+        
+    } catch (error) {
+        console.error('Error updating API key:', error);
+        showToast(error.message, 'error');
+    }
+}
+
+async function toggleApiKey(id, activate) {
+    try {
+        const response = await fetch(`/api/api-keys/${id}/toggle`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ is_active: activate })
+        });
+        
+        if (response.status === 401) {
+            window.location.href = '/login';
+            return;
+        }
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to toggle API key');
+        }
+        
+        showToast(data.message, 'success');
+        loadApiKeys();
+        
+    } catch (error) {
+        console.error('Error toggling API key:', error);
+        showToast(error.message, 'error');
+    }
+}
+
+async function deleteApiKey(id) {
+    if (!confirm('Are you sure you want to delete this API key? This action cannot be undone.')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/api-keys/${id}`, {
+            method: 'DELETE'
+        });
+        
+        if (response.status === 401) {
+            window.location.href = '/login';
+            return;
+        }
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to delete API key');
+        }
+        
+        showToast('API key deleted successfully!', 'success');
+        loadApiKeys();
+        
+    } catch (error) {
+        console.error('Error deleting API key:', error);
+        showToast(error.message, 'error');
+    }
+}
+
+function copyToClipboard(text) {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+    showToast('API key copied to clipboard!', 'success');
+}
+
+function updateCheckerStatus(checker) {
+    const statusBox = document.getElementById('checkerStatus');
+    const statusContent = document.getElementById('statusContent');
+    const toggleBtn = document.getElementById('toggleCheckerBtn');
+    
+    if (!checker) return;
+    
+    statusBox.style.display = 'block';
+    
+    const runningClass = checker.running ? 'success' : 'error';
+    const runningText = checker.running ? '✓ Running' : '✗ Stopped';
+    const lastCheckText = checker.lastCheck ? new Date(checker.lastCheck).toLocaleString() : 'Never';
+    
+    statusContent.innerHTML = `
+        <div class="status-item">
+            <span class="status-label">Status:</span>
+            <span class="status-value ${runningClass}">${runningText}</span>
+        </div>
+        <div class="status-item">
+            <span class="status-label">Last Check:</span>
+            <span class="status-value">${lastCheckText}</span>
+        </div>
+        ${checker.lastNotificationCount !== null ? `
+        <div class="status-item">
+            <span class="status-label">Last Notification:</span>
+            <span class="status-value">${checker.lastNotificationCount} products</span>
+        </div>
+        ` : ''}
+    `;
+    
+    toggleBtn.textContent = checker.running ? '⏸️ Stop' : '▶️ Start';
 }
 

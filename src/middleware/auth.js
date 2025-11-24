@@ -1,15 +1,24 @@
+const apiKeyService = require('../services/apiKeys');
+
 // API Key authentication middleware
-function validateApiKey(req, res, next) {
+async function validateApiKey(req, res, next) {
     const apiKey = req.query.key;
-    const expectedKey = process.env.API_KEY;
 
     if (!apiKey) {
         return res.status(401).json({ error: 'API key is required' });
     }
 
-    if (apiKey !== expectedKey) {
-        return res.status(403).json({ error: 'Invalid API key' });
+    const validation = await apiKeyService.validateKey(apiKey);
+
+    if (!validation.valid) {
+        return res.status(403).json({ error: 'Invalid or inactive API key' });
     }
+
+    // Attach key info to request for potential logging
+    req.apiKey = {
+        id: validation.keyId,
+        name: validation.keyName
+    };
 
     next();
 }
