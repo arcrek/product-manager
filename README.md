@@ -1,6 +1,6 @@
-# 📦 ExpressVPN API - Product Inventory Management System
+# 📦 Product Manager - Multi-Inventory Management System
 
-A lightweight, ultra-fast product inventory management system with RESTful API and beautiful dashboard. Built with Node.js, Express, and SQLite for managing 100-200 products efficiently.
+A lightweight, ultra-fast product inventory management system with RESTful API and beautiful dashboard. Built with Node.js, Express, and SQLite for managing multiple product inventories with automatic expiration and migration.
 
 ## ✨ Features
 
@@ -15,8 +15,10 @@ A lightweight, ultra-fast product inventory management system with RESTful API a
 - **Telegram Notifications**: Real-time stock alerts and activity notifications
 - **Smart Monitoring**: Periodic stock checks with customizable thresholds
 - **Date-Based Management**: Delete unsold products by upload date
-- **🏪 Kiosk Mode**: Create separate inventories with isolated API key access (NEW!)
-- **Multiple Inventories**: Manage different product pools independently (NEW!)
+- **🏪 Kiosk Mode**: Create separate inventories with isolated API key access
+- **Multiple Inventories**: Manage different product pools independently
+- **Auto Product Migration**: Automatic ExpressVPN product expiration workflow
+- **Sub-Inventories**: Hierarchical inventory structure (e.g., "Trôi hạn" under "ExpressVPN")
 
 ## 🚀 Quick Start
 
@@ -205,8 +207,10 @@ Access the dashboard at `http://localhost:3000` with Basic Authentication.
 - **🗑️ Bulk Delete**: Select and delete multiple products
 - **📅 Date-Based Deletion**: Delete unsold products by upload date
 - **🔑 API Key Management**: Create, import, activate/deactivate multiple API keys
-- **🏪 Inventory Management**: Create and manage separate inventories (NEW!)
-- **🔒 Kiosk API Keys**: Restrict API keys to specific inventories (NEW!)
+- **🏪 Inventory Management**: Create and manage separate inventories
+- **🔒 Kiosk API Keys**: Restrict API keys to specific inventories
+- **⏱️ Auto Expiration**: Products automatically migrate and expire based on age
+- **🗑️ Delete by List**: Email Trial inventory supports batch deletion with partial matching
 - **📱 Telegram Integration**: Configure bot notifications with custom headers/footers
 - **⚡ Real-time Notifications**: Instant alerts when products are added or sold
 - **📉 Stock Monitoring**: Periodic checks for low stock and out-of-stock alerts (UTC+7 timezone)
@@ -239,13 +243,17 @@ expressvpn-api/
 │   │   ├── api.js               # Main API routes
 │   │   ├── dashboard.js         # Dashboard API routes
 │   │   ├── settings.js          # Settings API routes
-│   │   └── apiKeys.js           # API key management routes
+│   │   ├── apiKeys.js           # API key management routes
+│   │   ├── inventories.js       # Inventory management routes
+│   │   └── emailTrial.js        # Email Trial specific routes
 │   ├── services/
 │   │   ├── telegram.js          # Telegram bot integration
 │   │   ├── stockChecker.js      # Periodic stock monitoring
 │   │   ├── activityMonitor.js   # Real-time activity notifications
 │   │   ├── settings.js          # Settings management
-│   │   └── apiKeys.js           # API key service
+│   │   ├── apiKeys.js           # API key service
+│   │   ├── inventoryService.js  # Inventory management service
+│   │   └── productMigration.js  # Auto product migration & deletion
 │   ├── utils/
 │   │   ├── cache.js             # Caching utility
 │   │   └── validator.js         # Input validation
@@ -263,7 +271,9 @@ expressvpn-api/
 ├── docker-compose.portainer-stack.yml  # Portainer stack deployment
 ├── package.json                 # Node.js dependencies
 ├── env.example                  # Environment variables template
-└── README.md                    # This file
+├── README.md                    # This file
+├── PROJECT_STRUCTURE.md         # Project structure documentation
+└── FRONTEND_TODO.md             # Frontend development tasks
 ```
 
 ## ⚙️ Configuration
@@ -288,16 +298,20 @@ expressvpn-api/
 ## 🗄️ Database Schema
 
 ```sql
--- Inventories table (NEW!)
+-- Inventories table
 CREATE TABLE inventories (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE,
     description TEXT,
+    parent_id INTEGER,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    is_active BOOLEAN DEFAULT 1
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (parent_id) REFERENCES inventories(id)
 );
 
--- Products table (Updated with inventory_id)
+-- Default inventories: ExpressVPN, Email Trial, Trôi hạn (sub-inventory)
+
+-- Products table
 CREATE TABLE products (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     product TEXT NOT NULL,
@@ -314,16 +328,18 @@ CREATE INDEX idx_upload_date ON products(upload_date);
 CREATE INDEX idx_inventory_id ON products(inventory_id);
 CREATE INDEX idx_inventory_sold ON products(inventory_id, is_sold);
 
--- API keys table (Updated with kiosk support)
+-- API keys table
 CREATE TABLE api_keys (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     key TEXT UNIQUE NOT NULL,
     name TEXT,
+    description TEXT,
     inventory_id INTEGER DEFAULT NULL,
     is_kiosk BOOLEAN DEFAULT 0,
     is_active BOOLEAN DEFAULT 1,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    last_used_at DATETIME,
+    created_by TEXT DEFAULT 'system',
+    last_used DATETIME,
     usage_count INTEGER DEFAULT 0,
     FOREIGN KEY (inventory_id) REFERENCES inventories(id)
 );
@@ -346,10 +362,16 @@ CREATE TABLE sessions (
 );
 ```
 
+**Default Inventories**:
+- **ExpressVPN**: Main inventory with auto-expiration (3 days → Trôi hạn)
+- **Email Trial**: Email trial accounts with delete-by-list support
+- **Trôi hạn**: Sub-inventory under ExpressVPN (auto-deleted after 10 days)
+
 **Note**: Database migration is automatic. When you upgrade, the system will:
-- Create the `inventories` table
-- Add `inventory_id` column to `products` (existing products → inventory 1)
+- Create the `inventories` table with default inventories
+- Add `inventory_id` column to `products` (existing products → ExpressVPN inventory)
 - Add `inventory_id` and `is_kiosk` columns to `api_keys` (existing keys → full access)
+- Start the auto-migration service for ExpressVPN products
 
 ## 🐳 Docker Commands
 
@@ -515,7 +537,7 @@ API keys are managed through the dashboard instead of environment variables.
 
 ## 🏪 Kiosk Mode & Multiple Inventories
 
-**NEW FEATURE**: Create separate inventories and associate API keys with specific inventories for complete isolation.
+Create separate inventories and associate API keys with specific inventories for complete isolation.
 
 ### What is Kiosk Mode?
 
@@ -573,7 +595,56 @@ Kiosk mode allows you to:
 - ✅ **Backward Compatible**: Existing API keys continue to work as before
 - ✅ **Flexible**: Mix kiosk and full-access keys as needed
 
-📚 **For detailed documentation, see [KIOSK_GUIDE.md](KIOSK_GUIDE.md)**
+## ⏱️ Automated Product Lifecycle
+
+The system includes automated product management for ExpressVPN inventory:
+
+### ExpressVPN Auto-Migration
+- Products uploaded to **ExpressVPN** inventory
+- After **3 days**, automatically moved to **Trôi hạn** sub-inventory
+- After **10 days** in Trôi hạn, automatically deleted
+- Runs hourly via cron scheduler
+- Telegram notifications for all migrations and deletions
+
+### Example Timeline
+```
+Day 0:  Product uploaded to ExpressVPN
+Day 3:  Automatically moved to Trôi hạn
+Day 13: Automatically deleted from Trôi hạn
+```
+
+### API Key Access
+- API keys can be assigned to either ExpressVPN or Trôi hạn independently
+- Example: Reseller A sees ExpressVPN products, Reseller B sees Trôi hạn products
+
+## 🗑️ Delete by List (Email Trial)
+
+Email Trial inventory supports batch deletion with partial matching:
+
+### Features
+- Delete multiple products by providing a list
+- Supports exact matches: `email@domain.com|password123`
+- Supports partial matches: Just `email@domain.com` will match the full product
+- Perfect for cleaning up invalid or used trial accounts
+
+### API Endpoint
+```bash
+POST /api/dashboard/products/delete-by-list
+Content-Type: application/json
+
+{
+  "list": "email1@domain.com\nemail2@domain.com\nemail3@domain.com|password"
+}
+```
+
+### Response
+```json
+{
+  "success": true,
+  "deleted": 5,
+  "processed": 3
+}
+```
 
 ## 🐛 Troubleshooting
 

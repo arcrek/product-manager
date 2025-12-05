@@ -143,6 +143,46 @@ class TelegramService {
         return await this.sendMessage(message);
     }
 
+    async sendProductMovedAlert(quantity, source, destination, header = '', footer = '') {
+        let message = '';
+        
+        if (header) {
+            message += `${header}\n\n`;
+        }
+        
+        message += `📦 <b>Products Moved</b>\n\n`;
+        message += `🔄 Quantity Moved: <b>${quantity}</b>\n`;
+        message += `📤 From: ${source}\n`;
+        message += `📥 To: ${destination}\n`;
+        message += `⏰ Time: ${this.formatTime()} (UTC+7)`;
+        
+        if (footer) {
+            message += `\n\n${footer}`;
+        }
+        
+        return await this.sendMessage(message);
+    }
+
+    async sendProductDeletedAlert(quantity, source, reason, header = '', footer = '') {
+        let message = '';
+        
+        if (header) {
+            message += `${header}\n\n`;
+        }
+        
+        message += `🗑️ <b>Products Deleted</b>\n\n`;
+        message += `❌ Quantity Deleted: <b>${quantity}</b>\n`;
+        message += `📦 From: ${source}\n`;
+        message += `❓ Reason: ${reason}\n`;
+        message += `⏰ Time: ${this.formatTime()} (UTC+7)`;
+        
+        if (footer) {
+            message += `\n\n${footer}`;
+        }
+        
+        return await this.sendMessage(message);
+    }
+
     async testConnection() {
         if (!this.botToken) {
             return { success: false, error: 'Bot token not configured' };

@@ -18,6 +18,23 @@ router.get('/api-keys', async (req, res) => {
     }
 });
 
+// Get single API key
+router.get('/api-keys/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const key = await apiKeyService.getKey(parseInt(id));
+        
+        if (!key) {
+            return res.status(404).json({ error: 'API key not found' });
+        }
+
+        res.json(key);
+    } catch (error) {
+        console.error('Error getting API key:', error);
+        res.status(500).json({ error: 'Failed to get API key' });
+    }
+});
+
 // Create new API key
 router.post('/api-keys', express.json(), async (req, res) => {
     try {
@@ -134,6 +151,45 @@ router.get('/api-keys/stats', async (req, res) => {
     } catch (error) {
         console.error('Error getting API key stats:', error);
         res.status(500).json({ error: 'Failed to get stats' });
+    }
+});
+
+// Get API URLs for a specific key
+router.get('/api-keys/:id/urls', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const key = await apiKeyService.getKey(parseInt(id));
+        
+        if (!key) {
+            return res.status(404).json({ error: 'API key not found' });
+        }
+
+        // Get the base URL from the request
+        const protocol = req.protocol;
+        const host = req.get('host');
+        const baseUrl = `${protocol}://${host}`;
+
+        // Generate API URLs
+        const urls = {
+            getStock: `${baseUrl}/input?key=${key.key}`,
+            getProducts: `${baseUrl}/input?key=${key.key}&order_id=ORDER_ID&quantity=QUANTITY`,
+            examples: {
+                getStock: `${baseUrl}/input?key=${key.key}`,
+                getOneProduct: `${baseUrl}/input?key=${key.key}&order_id=ORD123&quantity=1`,
+                getFiveProducts: `${baseUrl}/input?key=${key.key}&order_id=ORD456&quantity=5`
+            }
+        };
+
+        res.json({
+            success: true,
+            keyName: key.name,
+            isKiosk: key.is_kiosk === 1,
+            inventoryId: key.inventory_id,
+            urls
+        });
+    } catch (error) {
+        console.error('Error getting API URLs:', error);
+        res.status(500).json({ error: 'Failed to generate API URLs' });
     }
 });
 

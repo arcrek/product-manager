@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ExpressVPN API Dashboard</title>
+    <title>Product Manager Dashboard</title>
     
     <!-- Fonts & Icons -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -19,13 +19,16 @@
 </head>
 <body>
     <div class="app-container">
+        <!-- Sidebar Overlay -->
+        <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+        
         <!-- Sidebar -->
         <aside class="sidebar">
             <div class="logo">
                 <div class="logo-icon">
                     <i class="ph-bold ph-cube"></i>
                 </div>
-                <span class="logo-text">VPN Manager</span>
+                <span class="logo-text">Product Manager</span>
             </div>
             
             <nav class="nav-menu">
@@ -68,14 +71,16 @@
         <!-- Main Content -->
         <main class="main-content">
             <header class="top-bar">
-                <h1 id="pageTitle">Dashboard</h1>
+                <div class="header-left">
+                    <button class="mobile-menu-toggle" onclick="toggleSidebar()">
+                        <i class="ph ph-list"></i>
+                    </button>
+                    <h1 id="pageTitle">Dashboard</h1>
+                </div>
                 <div class="top-actions">
                     <button class="theme-toggle" onclick="toggleTheme()" title="Toggle Dark Mode">
                         <i class="ph ph-moon"></i>
                     </button>
-                    <a href="/api.md" target="_blank" class="btn btn-text">
-                        <i class="ph ph-book-open"></i> API Docs
-                    </a>
                 </div>
             </header>
 
@@ -196,12 +201,11 @@
                 <div id="api-keys" class="tab-content">
                     <div class="stats-grid mini">
                         <div class="stat-card">
-                            <span class="stat-label">Active Keys</span>
-                            <span class="stat-value" id="activeKeysCount">-</span>
-                        </div>
-                        <div class="stat-card">
-                            <span class="stat-label">Total Requests</span>
-                            <span class="stat-value" id="totalRequestsCount">-</span>
+                            <div class="stat-icon"><i class="ph ph-key"></i></div>
+                            <div class="stat-info">
+                                <span class="stat-label">Active Keys</span>
+                                <span class="stat-value" id="activeKeysCount">-</span>
+                            </div>
                         </div>
                     </div>
 
@@ -433,6 +437,10 @@
                     <label>Name</label>
                     <input type="text" id="editKeyName" class="input">
                 </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea id="editKeyDescription" class="input textarea" rows="2"></textarea>
+                </div>
                 <div class="checkbox-group">
                     <label class="checkbox-container">
                         <input type="checkbox" id="editKeyActive">
@@ -455,6 +463,118 @@
             <div class="modal-footer">
                 <button class="btn btn-text" onclick="closeModal('editKeyModal')">Cancel</button>
                 <button class="btn btn-primary" onclick="saveApiKey()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Inventory Modal -->
+    <div id="editInventoryModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Edit Inventory</h2>
+                <button class="close-modal" onclick="closeModal('editInventoryModal')"><i class="ph ph-x"></i></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editInventoryId">
+                <div class="form-group">
+                    <label>Name</label>
+                    <input type="text" id="editInventoryName" class="input">
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea id="editInventoryDesc" class="input textarea" rows="3"></textarea>
+                </div>
+                <div class="checkbox-group">
+                    <label class="checkbox-container">
+                        <input type="checkbox" id="editInventoryActive">
+                        <span class="checkmark"></span>
+                        Active
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-text" onclick="closeModal('editInventoryModal')">Cancel</button>
+                <button class="btn btn-primary" onclick="saveInventory()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- API URLs Modal -->
+    <div id="apiUrlsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>API URLs</h2>
+                <button class="close-modal" onclick="closeModal('apiUrlsModal')"><i class="ph ph-x"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="url-section" style="margin-bottom: 20px;">
+                    <label style="font-weight: 600; display: block; margin-bottom: 8px;">Get Stock Count</label>
+                    <div class="input-group" style="display: flex; gap: 8px;">
+                        <input type="text" readonly id="stockUrl" class="input" style="font-family: monospace; font-size: 0.9em;">
+                        <button onclick="copyUrl('stockUrl')" class="btn btn-secondary"><i class="ph ph-copy"></i></button>
+                    </div>
+                </div>
+                
+                <div class="url-section" style="margin-bottom: 20px;">
+                    <label style="font-weight: 600; display: block; margin-bottom: 8px;">Get Products (Template)</label>
+                    <div class="input-group" style="display: flex; gap: 8px;">
+                        <input type="text" readonly id="productsUrl" class="input" style="font-family: monospace; font-size: 0.9em;">
+                        <button onclick="copyUrl('productsUrl')" class="btn btn-secondary"><i class="ph ph-copy"></i></button>
+                    </div>
+                    <small style="color: var(--text-secondary); display: block; margin-top: 4px;">Replace ORDER_ID and QUANTITY with actual values</small>
+                </div>
+                
+                <div class="url-section">
+                    <label style="font-weight: 600; display: block; margin-bottom: 8px;">Examples</label>
+                    <div style="background: var(--bg-body); padding: 12px; border-radius: 8px; border: 1px solid var(--border);">
+                        <div style="margin-bottom: 12px;">
+                            <div style="font-size: 0.85em; margin-bottom: 4px; color: var(--text-secondary);">Get 1 product:</div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                                <code id="example1Url" style="font-family: monospace; word-break: break-all; font-size: 0.85em;"></code>
+                                <button onclick="copyUrl('example1Url')" class="btn-icon"><i class="ph ph-copy"></i></button>
+                            </div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.85em; margin-bottom: 4px; color: var(--text-secondary);">Get 5 products:</div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                                <code id="example5Url" style="font-family: monospace; word-break: break-all; font-size: 0.85em;"></code>
+                                <button onclick="copyUrl('example5Url')" class="btn-icon"><i class="ph ph-copy"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-text" onclick="closeModal('apiUrlsModal')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete by List Modal -->
+    <div id="deleteByListModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Delete by List (Email Trial)</h2>
+                <button class="close-modal" onclick="closeModal('deleteByListModal')"><i class="ph ph-x"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="info-box" style="background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; padding: 12px; border-radius: 8px; margin-bottom: 16px;">
+                    <div style="display: flex; gap: 8px;">
+                        <i class="ph ph-warning-circle" style="font-size: 1.2em;"></i>
+                        <div>
+                            <strong>Partial Match Deletion</strong>
+                            <p style="margin-top: 4px; font-size: 0.9em;">Paste products/emails to delete (one per line). Any product containing these strings will be deleted.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Product List</label>
+                    <textarea id="deleteListTextarea" class="input textarea" rows="10" placeholder="user@email.com&#10;another@example.com"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-text" onclick="closeModal('deleteByListModal')">Cancel</button>
+                <button class="btn btn-danger" onclick="deleteByList()">Delete Products</button>
             </div>
         </div>
     </div>

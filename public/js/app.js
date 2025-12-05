@@ -49,8 +49,26 @@ function setupNavigation() {
         btn.addEventListener('click', () => {
             const tab = btn.dataset.tab;
             switchTab(tab);
+            // Close sidebar on mobile selection
+            if (window.innerWidth <= 768) {
+                toggleSidebar();
+            }
         });
     });
+}
+
+function toggleSidebar() {
+    document.querySelector('.sidebar').classList.toggle('open');
+    const overlay = document.querySelector('.sidebar-overlay');
+    if (overlay) {
+        if (document.querySelector('.sidebar').classList.contains('open')) {
+            overlay.classList.add('open');
+            overlay.style.display = 'block';
+        } else {
+            overlay.classList.remove('open');
+            setTimeout(() => overlay.style.display = 'none', 300);
+        }
+    }
 }
 
 function switchTab(tabId) {
@@ -153,7 +171,7 @@ async function loadApiKeys() {
         state.keys = data.keys;
         
         updateElement('activeKeysCount', data.stats.active);
-        updateElement('totalRequestsCount', data.stats.total_requests);
+        // updateElement('totalRequestsCount', data.stats.total_requests); // Removed
         
         renderApiKeys();
     } catch (err) {
@@ -215,6 +233,9 @@ function renderInventories() {
                 </div>
             </div>
             <div class="inv-actions">
+                ${inv.name === 'Email Trial' ? `
+                    <button onclick="showDeleteByListModal()" class="btn btn-text" style="color:var(--danger)" title="Delete by List"><i class="ph ph-list-dashes"></i> List Del</button>
+                ` : ''}
                 ${inv.id !== 1 ? `
                     <button onclick="editInventory(${inv.id})" class="btn btn-text" title="Edit"><i class="ph ph-pencil"></i></button>
                     <button onclick="deleteInventory(${inv.id})" class="btn btn-text" style="color:var(--danger)" title="Delete"><i class="ph ph-trash"></i></button>
@@ -291,6 +312,7 @@ function renderApiKeys() {
             <td>${k.usage_count}</td>
             <td>${new Date(k.created_at).toLocaleDateString()}</td>
             <td>
+                <button onclick="showApiUrls(${k.id}, '${escapeHtml(k.key)}')" class="btn btn-icon" title="Show URLs"><i class="ph ph-link"></i></button>
                 <button onclick="toggleKey(${k.id}, ${!k.is_active})" class="btn btn-icon">
                     <i class="ph ${k.is_active ? 'ph-pause' : 'ph-play'}"></i>
                 </button>
@@ -301,14 +323,112 @@ function renderApiKeys() {
     `}).join('');
 }
 
+function showApiUrls(id, key) {
+    const baseUrl = window.location.origin;
+    const stockUrl = `${baseUrl}/input?key=${key}`;
+    const productsUrl = `${baseUrl}/input?key=${key}&order_id=ORDER_ID&quantity=QUANTITY`;
+    
+    document.getElementById('stockUrl').value = stockUrl;
+    document.getElementById('productsUrl').value = productsUrl;
+    
+    // Examples
+    document.getElementById('example1Url').textContent = `${baseUrl}/input?key=${key}&order_id=ORD-${Date.now().toString().substr(-4)}&quantity=1`;
+    document.getElementById('example5Url').textContent = `${baseUrl}/input?key=${key}&order_id=ORD-${Date.now().toString().substr(-4)}&quantity=5`;
+    
+    openModal('apiUrlsModal');
+}
+
+function copyUrl(elementId) {
+    const element = document.getElementById(elementId);
+    const text = element.value || element.textContent;
+    navigator.clipboard.writeText(text);
+    showToast('URL copied to clipboard', 'success');
+}
+
+async function editKey(id) {
+    try {
+        const res = await fetch(`/api/api-keys/${id}`); 
+        let key;
+        if (res.ok) {
+            key = await res.json();
+        } else {
+            key = state.keys.find(k => k.id === id);
+        }
+        
+        if (!key) return showToast('Key not found', 'error');
+        
+        document.getElementById('editKeyId').value = key.id;
+        document.getElementById('editKeyName').value = key.name;
+        document.getElementById('editKeyDescription').value = key.description || '';
+        document.getElementById('editKeyActive').checked = key.is_active;
+        document.getElementById('editKeyIsKiosk').checked = key.is_kiosk;
+        
+        populateInventoryDropdowns(); 
+        document.getElementById('editKeyInventory').value = key.inventory_id || '';
+        
+        toggleEditKioskInput();
+        openModal('editKeyModal');
+    } catch (e) {
+        console.error(e);
+        showToast('Failed to load key details', 'error');
+    }
+}
+
 function renderRecentActivity(uploads, sales) {
     const list = document.getElementById('recentActivityList');
     if (!list) return;
     
-    // Combine and sort by date
+    // Aggregate activities
+    const aggregated = [];
+    
+    // Group Uploads
+    // Key: invId_timeKey (minute precision)
+    const uploadGroups = {};
+    uploads.forEach(u => {
+        const date = new Date(u.upload_date);
+        const timeKey = date.getFullYear() + '-' + date.getMonth() + '-' + date.getDate() + ' ' + date.getHours() + ':' + date.getMinutes();
+        const key = `${u.inventory_id}_${timeKey}`;
+        
+        if (!uploadGroups[key]) {
+            uploadGroups[key] = { 
+                type: 'upload', 
+                inventory_id: u.inventory_id, 
+                date: u.upload_date, 
+                count: 0 
+            };
+        }
+        uploadGroups[key].count++;
+        // Keep the latest date for sorting
+        if (new Date(u.upload_date) > new Date(uploadGroups[key].date)) {
+            uploadGroups[key].date = u.upload_date;
+        }
+    });
+    
+    // Group Sales
+    const saleGroups = {};
+    sales.forEach(s => {
+        const date = new Date(s.sold_date);
+        const timeKey = date.getFullYear() + '-' + date.getMonth() + '-' + date.getDate() + ' ' + date.getHours() + ':' + date.getMinutes();
+        const key = `${s.inventory_id}_${timeKey}`; // Could also group by order_id if available
+        
+        if (!saleGroups[key]) {
+            saleGroups[key] = { 
+                type: 'sale', 
+                inventory_id: s.inventory_id, 
+                date: s.sold_date, 
+                count: 0 
+            };
+        }
+        saleGroups[key].count++;
+        if (new Date(s.sold_date) > new Date(saleGroups[key].date)) {
+            saleGroups[key].date = s.sold_date;
+        }
+    });
+    
+    // Combine
     const activities = [
-        ...uploads.map(u => ({ ...u, type: 'upload', date: u.upload_date })),
-        ...sales.map(s => ({ ...s, type: 'sale', date: s.sold_date }))
+        ...Object.values(uploadGroups),
+        ...Object.values(saleGroups)
     ].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 10);
     
     if (activities.length === 0) {
@@ -316,19 +436,26 @@ function renderRecentActivity(uploads, sales) {
         return;
     }
     
-    list.innerHTML = activities.map(a => `
+    list.innerHTML = activities.map(a => {
+        const inv = state.inventories.find(i => i.id === a.inventory_id);
+        const invName = inv ? inv.name : 'Unknown Inventory';
+        const isSale = a.type === 'sale';
+        
+        const text = isSale 
+            ? `Sold <strong>${a.count}</strong> product${a.count > 1 ? 's' : ''} from <strong>${escapeHtml(invName)}</strong>`
+            : `Uploaded <strong>${a.count}</strong> product${a.count > 1 ? 's' : ''} to <strong>${escapeHtml(invName)}</strong>`;
+            
+        return `
         <div class="activity-item">
-            <div class="activity-icon" style="color: ${a.type === 'sale' ? 'var(--warning)' : 'var(--primary)'}">
-                <i class="ph ${a.type === 'sale' ? 'ph-shopping-cart' : 'ph-upload-simple'}"></i>
+            <div class="activity-icon" style="color: ${isSale ? 'var(--warning)' : 'var(--primary)'}">
+                <i class="ph ${isSale ? 'ph-shopping-cart' : 'ph-upload-simple'}"></i>
             </div>
             <div class="activity-details">
-                <span class="activity-text">
-                    ${a.type === 'sale' ? 'Product Sold' : 'Product Added'}
-                </span>
+                <span class="activity-text">${text}</span>
                 <span class="activity-time">${new Date(a.date).toLocaleString()}</span>
             </div>
         </div>
-    `).join('');
+    `}).join('');
 }
 
 function renderActivityChart(sales) {
@@ -409,6 +536,63 @@ async function deleteInventory(id) {
         loadInventories();
         showToast('Inventory deleted', 'success');
     } catch (e) { showToast(e.message, 'error'); }
+}
+
+// Delete by List (Email Trial)
+function showDeleteByListModal() {
+    openModal('deleteByListModal');
+    document.getElementById('deleteListTextarea').value = '';
+}
+
+async function deleteByList() {
+    const text = document.getElementById('deleteListTextarea').value;
+    const list = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    
+    if (list.length === 0) {
+        return showToast('Please enter at least one item', 'error');
+    }
+    
+    if (!confirm(`Delete products matching ${list.length} items?`)) return;
+    
+    try {
+        const res = await fetch('/api/email-trial/delete-by-list', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ list })
+        });
+        
+        if (res.status === 404) {
+            // Fallback for development if endpoint name is different or not ready
+             throw new Error('Backend endpoint not ready');
+        }
+        
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to delete');
+        
+        showToast(`Deleted ${data.deleted} products`, 'success');
+        closeModal('deleteByListModal');
+        loadProducts();
+        loadInventories(); // Update counts
+    } catch (e) {
+        // Fallback to bulk delete if specific endpoint fails? 
+        // No, partial match logic is likely server-side.
+        // We will try the generic delete-by-list endpoint if the specific one fails
+        try {
+             const res = await fetch('/api/products/delete-by-list', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ list })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+            showToast(`Deleted ${data.deleted} products`, 'success');
+            closeModal('deleteByListModal');
+            loadProducts();
+            loadInventories();
+        } catch (err) {
+            showToast(e.message, 'error');
+        }
+    }
 }
 
 function filterToInventory(id) {

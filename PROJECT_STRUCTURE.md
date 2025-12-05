@@ -15,7 +15,7 @@ expressvpn-api/
 ├── 📚 Documentation
 │   ├── README.md                 # Full project documentation
 │   ├── PROJECT_STRUCTURE.md      # This file
-│   ├── KIOSK_GUIDE.md            # Kiosk mode and inventory management guide
+│   ├── FRONTEND_TODO.md          # Frontend development tasks
 │   └── api.md                    # Original API specification
 │
 ├── 🗄️ Database
@@ -46,7 +46,8 @@ expressvpn-api/
 │       │   ├── dashboard.js      # Dashboard API endpoints
 │       │   ├── settings.js       # Settings API endpoints
 │       │   ├── apiKeys.js        # API key management endpoints
-│       │   └── inventories.js    # Inventory management endpoints (NEW!)
+│       │   ├── inventories.js    # Inventory management endpoints
+│       │   └── emailTrial.js     # Email Trial specific endpoints
 │       │
 │       ├── 📁 services/          # Business services
 │       │   ├── telegram.js       # Telegram bot integration
@@ -54,7 +55,8 @@ expressvpn-api/
 │       │   ├── activityMonitor.js # Real-time activity notifications
 │       │   ├── settings.js       # Settings management
 │       │   ├── apiKeys.js        # API key service
-│       │   └── inventoryService.js # Inventory management service (NEW!)
+│       │   ├── inventoryService.js # Inventory management service
+│       │   └── productMigration.js # Auto product migration & deletion
 │       │
 │       └── server.js             # Main application entry point
 │
@@ -167,11 +169,23 @@ expressvpn-api/
 - Inventory association (NEW!)
 - Kiosk mode validation (NEW!)
 
-#### `src/services/inventoryService.js` (NEW!)
+#### `src/services/inventoryService.js`
 - Inventory CRUD operations
 - Inventory statistics
 - Validation and constraints
 - Integration with products and API keys
+
+#### `src/services/productMigration.js`
+- Automated product lifecycle management
+- ExpressVPN → Trôi hạn migration (3 days)
+- Auto-deletion from Trôi hạn (10 days)
+- Cron-based scheduling (hourly checks)
+- Telegram notifications for migrations
+
+#### `src/routes/emailTrial.js`
+- Email Trial inventory endpoints
+- Delete by list functionality
+- Partial match support
 
 ### Frontend Files
 

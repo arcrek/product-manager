@@ -59,6 +59,7 @@ async function initializeDatabase() {
             is_sold BOOLEAN DEFAULT 0,
             order_id TEXT NULL,
             sold_date DATETIME NULL,
+            moved_date DATETIME NULL,
             FOREIGN KEY (inventory_id) REFERENCES inventories(id)
         )
     `;
@@ -83,14 +84,38 @@ async function initializeDatabase() {
         // Create inventories table first
         await dbRun(createInventoriesTableSQL);
         
-        // Check if default inventory exists
-        const defaultInventory = await dbGet('SELECT id FROM inventories WHERE id = 1');
-        if (!defaultInventory) {
+        // Initialize Default Inventories
+        // ID 1: ExpressVPN (Renaming Default if exists or creating)
+        const inv1 = await dbGet('SELECT id FROM inventories WHERE id = 1');
+        if (!inv1) {
             await dbRun(
                 'INSERT INTO inventories (id, name, description) VALUES (?, ?, ?)',
-                [1, 'Default Inventory', 'Main inventory for all products']
+                [1, 'ExpressVPN', 'Main inventory for ExpressVPN accounts']
             );
-            console.log('✓ Default inventory created');
+            console.log('✓ ExpressVPN inventory created');
+        } else {
+            // Update name if it's "Default Inventory"
+            await dbRun("UPDATE inventories SET name = 'ExpressVPN', description = 'Main inventory for ExpressVPN accounts' WHERE id = 1 AND name = 'Default Inventory'");
+        }
+
+        // ID 2: Email Trial
+        const inv2 = await dbGet('SELECT id FROM inventories WHERE name = ?', ['Email Trial']);
+        if (!inv2) {
+            await dbRun(
+                'INSERT INTO inventories (name, description) VALUES (?, ?)',
+                ['Email Trial', 'Inventory for Email Trial accounts']
+            );
+            console.log('✓ Email Trial inventory created');
+        }
+
+        // ID 3: Trôi hạn (Sub-inventory for ExpressVPN)
+        const inv3 = await dbGet('SELECT id FROM inventories WHERE name = ?', ['Trôi hạn']);
+        if (!inv3) {
+            await dbRun(
+                'INSERT INTO inventories (name, description) VALUES (?, ?)',
+                ['Trôi hạn', 'Expired ExpressVPN accounts (Moved after 3 days)']
+            );
+            console.log('✓ Trôi hạn inventory created');
         }
 
         // Create or alter products table
@@ -100,6 +125,14 @@ async function initializeDatabase() {
         try {
             await dbRun('ALTER TABLE products ADD COLUMN inventory_id INTEGER DEFAULT 1');
             console.log('✓ Added inventory_id column to products table');
+        } catch (e) {
+            // Column already exists, ignore
+        }
+
+        // Try to add moved_date column
+        try {
+            await dbRun('ALTER TABLE products ADD COLUMN moved_date DATETIME NULL');
+            console.log('✓ Added moved_date column to products table');
         } catch (e) {
             // Column already exists, ignore
         }

@@ -53,6 +53,9 @@ router.delete('/products/:id', productsController.deleteProduct);
 // Bulk delete products
 router.post('/products/bulk-delete', express.json(), productsController.bulkDeleteProducts);
 
+// Delete products by text list (partial match)
+router.post('/products/delete-by-list', express.json(), productsController.deleteByList);
+
 // Get statistics
 router.get('/stats', productsController.getStats);
 

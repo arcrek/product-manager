@@ -49,16 +49,18 @@ class ApiKeyService {
             }
 
             // Check if default key exists
-            const defaultKey = process.env.API_KEY || '17e7068f-f366-4120-83e3-e0ec1212da49';
+            const defaultKey = '17e7068f-f366-4120-83e3-e0ec1212da49';
             const existing = await dbGet('SELECT id FROM api_keys WHERE key = ?', [defaultKey]);
             
             if (!existing) {
                 await dbRun(
                     'INSERT INTO api_keys (key, name, description, is_active, is_kiosk) VALUES (?, ?, ?, ?, ?)',
-                    [defaultKey, 'Default Key', 'Initial API key from environment - Full Access', 1, 0]
+                    [defaultKey, 'Default Key', 'Initial Default API Key', 1, 0]
                 );
                 console.log('✓ Default API key added');
             }
+
+            // No default API key - admin must create keys via dashboard
 
             console.log('✓ API Keys table initialized');
         } catch (error) {
@@ -174,7 +176,15 @@ class ApiKeyService {
 
     async getKey(id) {
         try {
-            return await dbGet('SELECT * FROM api_keys WHERE id = ?', [id]);
+            const key = await dbGet(`
+                SELECT 
+                    ak.*,
+                    i.name as inventory_name
+                FROM api_keys ak
+                LEFT JOIN inventories i ON ak.inventory_id = i.id
+                WHERE ak.id = ?
+            `, [id]);
+            return key;
         } catch (error) {
             console.error('Error getting API key:', error);
             return null;
@@ -248,15 +258,14 @@ class ApiKeyService {
             const stats = await dbGet(`
                 SELECT 
                     COUNT(*) as total,
-                    SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active,
-                    SUM(usage_count) as total_requests
+                    SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active
                 FROM api_keys
             `);
 
             return stats;
         } catch (error) {
             console.error('Error getting API key stats:', error);
-            return { total: 0, active: 0, total_requests: 0 };
+            return { total: 0, active: 0 };
         }
     }
 }

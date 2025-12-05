@@ -1,7 +1,7 @@
 {
-  "name": "expressvpn-api",
-  "version": "1.0.0",
-  "description": "Lightweight inventory management API with dashboard",
+  "name": "product-manager",
+  "version": "2.0.0",
+  "description": "Product Manager - Multi-Inventory Management System",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",

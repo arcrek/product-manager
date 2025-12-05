@@ -17,9 +17,11 @@ const dashboardRoutes = require('./routes/dashboard');
 const settingsRoutes = require('./routes/settings');
 const apiKeysRoutes = require('./routes/apiKeys');
 const inventoriesRoutes = require('./routes/inventories');
+const emailTrialRoutes = require('./routes/emailTrial');
 const { handleLogin, handleLogout, validateDashboardAuth } = require('./middleware/auth');
 const telegramService = require('./services/telegram');
 const stockChecker = require('./services/stockChecker');
+const productMigration = require('./services/productMigration');
 const settingsService = require('./services/settings');
 
 const app = express();
@@ -110,6 +112,7 @@ app.use('/api', validateDashboardAuth, dashboardRoutes);
 app.use('/api', validateDashboardAuth, settingsRoutes);
 app.use('/api', validateDashboardAuth, apiKeysRoutes);
 app.use('/api', validateDashboardAuth, inventoriesRoutes);
+app.use('/api', validateDashboardAuth, emailTrialRoutes);
 
 // Dashboard page - require authentication
 app.get(['/', '/dashboard'], validateDashboardAuth, (req, res) => {
@@ -152,6 +155,9 @@ async function initializeServices() {
             await stockChecker.start();
         }
 
+        // Start product migration service
+        await productMigration.start();
+
         console.log('✓ Services initialized');
     } catch (error) {
         console.error('Error initializing services:', error);
@@ -162,7 +168,7 @@ async function initializeServices() {
 app.listen(PORT, '0.0.0.0', async () => {
     console.log(`
 ╔═══════════════════════════════════════════╗
-║   ExpressVPN API Server                   ║
+║   Product Manager Server                  ║
 ╚═══════════════════════════════════════════╝
     
 ✓ Server running on port ${PORT}
@@ -182,12 +188,14 @@ Press Ctrl+C to stop
 process.on('SIGTERM', () => {
     console.log('SIGTERM received, shutting down gracefully...');
     stockChecker.stop();
+    productMigration.stop();
     process.exit(0);
 });
 
 process.on('SIGINT', () => {
     console.log('\nSIGINT received, shutting down gracefully...');
     stockChecker.stop();
+    productMigration.stop();
     process.exit(0);
 });
 
